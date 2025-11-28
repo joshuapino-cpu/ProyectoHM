@@ -82,8 +82,32 @@ def historial():
 # ----------------------
 @app.route('/dashboard')
 def dashboard():
-    return render_template("dashboard.html")
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    # Obtener SOLO la última lectura registrada
+    cursor.execute("""
+        SELECT temperatura, humedad, fecha 
+        FROM lecturas 
+        ORDER BY fecha DESC 
+        LIMIT 1
+    """)
+    data = cursor.fetchone()
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    cursor.close()
+    conn.close()
+
+    # Si hay datos en la BD
+    if data:
+        temperatura, humedad, fecha = data
+    else:
+        temperatura = "—"
+        humedad = "—"
+        fecha = "Sin datos"
+
+    return render_template(
+        "dashboard.html",
+        temperatura=temperatura,
+        humedad=humedad,
+        fecha=fecha
+    )
