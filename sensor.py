@@ -1,10 +1,8 @@
 import grovepi
 import time
 
-sensor_port = 4          # Puerto digital D4 del GrovePi
-sensor_type = 22         # 22 = DHT22, 11 = DHT11  (cámbialo si usas DHT11)
-
-# Variables donde se guardarán los datos
+sensor_port = 4      
+sensor_type = 22        
 temperatura = None
 humedad = None
 
