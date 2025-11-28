@@ -2,8 +2,8 @@ import grovepi
 import time
 import requests
 
-sensor_port = 4      
-sensor_type = 22        
+sensor_port = 7      
+sensor_type = 1        
 
 url = "http://localhost:5000/api/lectura"
 
