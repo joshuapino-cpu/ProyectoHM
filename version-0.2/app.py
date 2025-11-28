@@ -4,9 +4,9 @@ import math
 
 app = Flask(__name__)
 
-# ----------------------
-#   ENDPOINT POST
-# ----------------------
+# =====================================================================
+#   ENDPOINT POST: recibe lecturas del sensor
+# =====================================================================
 @app.route('/api/lectura', methods=['POST'])
 def recibir_lectura():
     data = request.get_json()
@@ -18,18 +18,18 @@ def recibir_lectura():
     if temperatura is None or humedad is None:
         return jsonify({"error": "Datos incompletos"}), 400
 
-    # Validación de datos NUMÉRICOS
+    # Validación de datos numéricos
     try:
         temperatura = float(temperatura)
         humedad = float(humedad)
     except:
         return jsonify({"error": "Valores no numéricos"}), 400
 
-    # Validación de NaN (muy importante)
+    # Validación contra NaN
     if math.isnan(temperatura) or math.isnan(humedad):
         return jsonify({"error": "Valores inválidos (NaN)"}), 400
 
-    # Guardar en BD
+    # Inserción a BD
     conn = get_connection()
     cursor = conn.cursor()
     sql = "INSERT INTO lecturas (temperatura, humedad) VALUES (%s, %s)"
@@ -41,9 +41,9 @@ def recibir_lectura():
     return jsonify({"mensaje": "Lectura almacenada"}), 200
 
 
-# ----------------------
-#   ENDPOINT GET DATOS
-# ----------------------
+# =====================================================================
+#   ENDPOINT GET: devuelve TODAS las lecturas (JSON)
+# =====================================================================
 @app.route('/api/datos', methods=['GET'])
 def obtener_datos():
     conn = get_connection()
@@ -55,17 +55,17 @@ def obtener_datos():
     return jsonify(datos)
 
 
-# ----------------------
-#   PÁGINA PRINCIPAL
-# ----------------------
+# =====================================================================
+#   INDEX
+# =====================================================================
 @app.route('/')
 def index():
     return render_template("index.html")
 
 
-# ----------------------
-#   HISTORIAL
-# ----------------------
+# =====================================================================
+#   HISTORIAL COMPLETO (HTML)
+# =====================================================================
 @app.route('/historial')
 def historial():
     conn = get_connection()
@@ -74,18 +74,19 @@ def historial():
     datos = cursor.fetchall()
     cursor.close()
     conn.close()
+
     return render_template("historial.html", datos=datos)
 
 
-# ----------------------
-#   DASHBOARD
-# ----------------------
+# =====================================================================
+#   DASHBOARD: última lectura
+# =====================================================================
 @app.route('/dashboard')
 def dashboard():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Obtener SOLO la última lectura registrada
+    # Obtener SOLO la lectura más reciente
     cursor.execute("""
         SELECT temperatura, humedad, fecha 
         FROM lecturas 
@@ -97,7 +98,7 @@ def dashboard():
     cursor.close()
     conn.close()
 
-    # Si hay datos en la BD
+    # Si hay datos
     if data:
         temperatura, humedad, fecha = data
     else:
@@ -111,3 +112,10 @@ def dashboard():
         humedad=humedad,
         fecha=fecha
     )
+
+
+# =====================================================================
+#   EJECUCIÓN DEL SERVIDOR
+# =====================================================================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
