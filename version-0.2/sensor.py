@@ -4,7 +4,7 @@ import requests
 import math
 
 sensor_port = 7      
-sensor_type = 1
+sensor_type = 0
 url = "http://localhost:5000/api/lectura"
 
 while True:
