@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify, render_template
+# =====================================================================
+#   IMPORTS Y CONFIGURACIÓN INICIAL
+# =====================================================================
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from database import get_connection
 import math
 
 app = Flask(__name__)
 
+
 # =====================================================================
-#   ENDPOINT POST: recibe lecturas del sensor
+#   ENDPOINT POST — recibe datos del sensor y mantiene máximo 20 registros
 # =====================================================================
 @app.route('/api/lectura', methods=['POST'])
 def recibir_lectura():
@@ -14,27 +18,42 @@ def recibir_lectura():
     temperatura = data.get("temperatura")
     humedad = data.get("humedad")
 
-    # Validación de datos vacíos
+    # Validación de campos
     if temperatura is None or humedad is None:
         return jsonify({"error": "Datos incompletos"}), 400
 
-    # Validación de datos numéricos
+    # Validación numérica
     try:
         temperatura = float(temperatura)
         humedad = float(humedad)
     except:
         return jsonify({"error": "Valores no numéricos"}), 400
 
-    # Validación contra NaN
+    # Validación NaN
     if math.isnan(temperatura) or math.isnan(humedad):
         return jsonify({"error": "Valores inválidos (NaN)"}), 400
 
-    # Inserción a BD
+    # Guardar en base de datos
     conn = get_connection()
     cursor = conn.cursor()
-    sql = "INSERT INTO lecturas (temperatura, humedad) VALUES (%s, %s)"
-    cursor.execute(sql, (temperatura, humedad))
+
+    cursor.execute(
+        "INSERT INTO lecturas (temperatura, humedad) VALUES (%s, %s)",
+        (temperatura, humedad)
+    )
     conn.commit()
+
+    # Mantener solo los 20 registros más recientes
+    cursor.execute("""
+        DELETE FROM lecturas
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id FROM lecturas ORDER BY fecha DESC LIMIT 20
+            ) AS t
+        );
+    """)
+    conn.commit()
+
     cursor.close()
     conn.close()
 
@@ -42,7 +61,7 @@ def recibir_lectura():
 
 
 # =====================================================================
-#   ENDPOINT GET: devuelve TODAS las lecturas (JSON)
+#   ENDPOINT GET — devuelve todos los registros actuales (máx. 20)
 # =====================================================================
 @app.route('/api/datos', methods=['GET'])
 def obtener_datos():
@@ -56,7 +75,7 @@ def obtener_datos():
 
 
 # =====================================================================
-#   INDEX
+#   INDEX — Página principal
 # =====================================================================
 @app.route('/')
 def index():
@@ -64,14 +83,16 @@ def index():
 
 
 # =====================================================================
-#   HISTORIAL COMPLETO (HTML)
+#   HISTORIAL — tabla con máximo 20 registros + botón borrar BD
 # =====================================================================
 @app.route('/historial')
 def historial():
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("SELECT temperatura, humedad, fecha FROM lecturas ORDER BY fecha DESC")
     datos = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
@@ -79,26 +100,42 @@ def historial():
 
 
 # =====================================================================
-#   DASHBOARD: última lectura
+#   RUTA PARA BORRAR TODA LA BD
+# =====================================================================
+@app.route('/borrar_todo', methods=['POST'])
+def borrar_todo():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM lecturas")
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('historial'))
+
+
+# =====================================================================
+#   DASHBOARD — Última lectura + auto actualización
 # =====================================================================
 @app.route('/dashboard')
 def dashboard():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Obtener SOLO la lectura más reciente
     cursor.execute("""
-        SELECT temperatura, humedad, fecha 
-        FROM lecturas 
-        ORDER BY fecha DESC 
+        SELECT temperatura, humedad, fecha
+        FROM lecturas
+        ORDER BY fecha DESC
         LIMIT 1
     """)
+
     data = cursor.fetchone()
 
     cursor.close()
     conn.close()
 
-    # Si hay datos
     if data:
         temperatura, humedad, fecha = data
     else:
